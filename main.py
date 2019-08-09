@@ -1,4 +1,6 @@
 from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+import imageio,os
 from collections import Counter
 import heapq
 import sys
@@ -129,8 +131,8 @@ class Model(object):
         if not os.path.exists('result'):os.makedirs('result')
         path=os.path.join(os.path.join(os.getcwd(),'result'),path)
         global iter,ITERATIONS
-        if iter['start']!=iter['end'] and iter['start']!=0: im.save(path, 'PNG')
-        elif iter['start']==0 and ITERATIONS==iter['end']: im.save(path, 'PNG')
+        if iter['start']!=iter['end'] and iter['start']!='0': im.save(path, 'PNG')
+        elif iter['start']=='0' and ITERATIONS==iter['end']: im.save(path, 'PNG')
 
 def main():
     global ITERATIONS
@@ -149,7 +151,7 @@ def main():
     model = Model(args[0])
     if re.match('^\d+$',ITERATIONS):
         ITERATIONS=int(ITERATIONS)
-        iter['start']=0
+        iter['start']='0'
         iter['end']=ITERATIONS
         iter['step']=1
     elif re.match('^(\d*):(\d*)$',ITERATIONS):
@@ -170,7 +172,7 @@ def main():
         print 'error input'
         return
 
-    ITERATIONS=iter['start']
+    ITERATIONS=int(iter['start'])
 
     count=1
 
@@ -190,7 +192,7 @@ def main():
                 previous = error
             model.split()
         File_pre_name=os.path.splitext(os.path.basename((args[0])))[0]
-        Output_file_name=File_pre_name+'_'+str(len(model.quads))+'_output.png'
+        Output_file_name=File_pre_name+'_'+'{:0>6}'.format(str(len(model.quads)))+'_output.png'
         model.render(Output_file_name)
         depth = Counter(x.depth for x in model.quads)
         for key in sorted(depth):
@@ -204,8 +206,23 @@ def main():
         if ITERATIONS>iter['end'] and ITERATIONS<(iter['end']+iter['step']) : ITERATIONS=iter['end']
         print '-' * 32
         print ' ' * 32
-    if iter['start']==0:os.startfile(os.path.join('result',Output_file_name))
-    else: os.startfile(os.path.dirname(Output_file_name))
+    result_file=os.path.join('result',Output_file_name)
+    if iter['start']=='0':os.startfile(result_file)
+    else:
+        is_gif=(raw_input('would you want to merge these png to the gif?')).lower()
+        os.startfile(os.path.dirname(result_file))
+        if is_gif == 'yes':
+            os.startfile(os.path.dirname(result_file))
+            print 'please wait a moment............................'
+            os.chdir(os.path.dirname(result_file))
+            images = []
+            filenames=sorted((fn for fn in os.listdir('.') if fn.endswith('.png')))
+            for filename in filenames:
+                images.append(imageio.imread(filename))
+            imageio.mimsave(File_pre_name+'_gif.gif', images,duration=0.3)
+            os.startfile(File_pre_name+'_gif.gif')
+        else:
+            os.startfile(os.path.dirname(result_file))
 
 if __name__ == '__main__':
     main()
