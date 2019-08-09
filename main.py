@@ -2,6 +2,8 @@ from PIL import Image, ImageDraw
 from collections import Counter
 import heapq
 import sys
+import os
+import re
 
 MODE_RECTANGLE = 1
 MODE_ELLIPSE = 2
@@ -16,6 +18,9 @@ SAVE_FRAMES = False
 ERROR_RATE = 0.5
 AREA_POWER = 0.25
 OUTPUT_SCALE = 1
+
+iter={'start':0,'end':0,'step':0}
+
 
 def weighted_average(hist):
     total = sum(hist)
@@ -121,35 +126,86 @@ class Model(object):
             else:
                 draw.rectangle(box, quad.color)
         del draw
-        im.save(path, 'PNG')
+        if not os.path.exists('result'):os.makedirs('result')
+        path=os.path.join(os.path.join(os.getcwd(),'result'),path)
+        global iter,ITERATIONS
+        if iter['start']!=iter['end'] and iter['start']!=0: im.save(path, 'PNG')
+        elif iter['start']==0 and ITERATIONS==iter['end']: im.save(path, 'PNG')
 
 def main():
+    global ITERATIONS
     args = sys.argv[1:]
-    if len(args) != 1:
-        print 'Usage: python main.py input_image'
+    if len(args) ==0:
+        args.append(raw_input('please input the path of the image:\n'))
+        ITERATIONS=raw_input('Please enter the number of times you want to iterate(example:[start:end:step]):\n')
+    elif len(args) > 2:
+        print 'Usage: python main.py <input_image> [<times_of_iterate>].\nPs:Use python 2.xx to run'
         return
+    else:
+        ITERATIONS=args[1]
+    print '-' * 32
+    print '-' * 32
+    print '-' * 32
     model = Model(args[0])
-    previous = None
-    for i in range(ITERATIONS):
-        error = model.average_error()
-        if previous is None or previous - error > ERROR_RATE:
-            print i, error
-            if SAVE_FRAMES:
-                model.render('frames/%06d.png' % i)
-            previous = error
-        model.split()
-    model.render('output.png')
-    print '-' * 32
-    depth = Counter(x.depth for x in model.quads)
-    for key in sorted(depth):
-        value = depth[key]
-        n = 4 ** key
-        pct = 100.0 * value / n
-        print '%3d %8d %8d %8.2f%%' % (key, n, value, pct)
-    print '-' * 32
-    print '             %8d %8.2f%%' % (len(model.quads), 100)
-    # for max_depth in range(max(depth.keys()) + 1):
-    #     model.render('out%d.png' % max_depth, max_depth)
+    if re.match('^\d+$',ITERATIONS):
+        ITERATIONS=int(ITERATIONS)
+        iter['start']=0
+        iter['end']=ITERATIONS
+        iter['step']=1
+    elif re.match('^(\d*):(\d*)$',ITERATIONS):
+        m=re.match('^(\d*):(\d*)$',ITERATIONS)
+        iter['start']=int(m.groups()[0])
+        iter['end']=int(m.groups()[1])
+        iter['step']=5
+        if iter['start']>iter['end']: return
+        print(iter['start'],iter['end'],iter['step'])
+    elif re.match('^(\d*):(\d*):(\d*)$',ITERATIONS):
+        m=re.match('^(\d*):(\d*):(\d*)$',ITERATIONS)
+        iter['start']=int(m.groups()[0])
+        iter['end']=int(m.groups()[1])
+        iter['step']=int(m.groups()[2])
+        if iter['start']>iter['end']: return
+        print(iter['start'],iter['end'],iter['step'])
+    else:
+        print 'error input'
+        return
+
+    ITERATIONS=iter['start']
+
+    count=1
+
+    while ITERATIONS <= iter['end'] :
+        print '-' * 32
+        print 'time',count
+        print ' ' * 32
+        count+=1
+
+        previous = None
+        for i in range(ITERATIONS):
+            error = model.average_error()
+            if previous is None or previous - error > ERROR_RATE:
+                #print i, error
+                if SAVE_FRAMES:
+                    model.render('frames/%06d.png' % i)
+                previous = error
+            model.split()
+        File_pre_name=os.path.splitext(os.path.basename((args[0])))[0]
+        Output_file_name=File_pre_name+'_'+str(len(model.quads))+'_output.png'
+        model.render(Output_file_name)
+        depth = Counter(x.depth for x in model.quads)
+        for key in sorted(depth):
+            value = depth[key]
+            n = 4 ** key
+            pct = 100.0 * value / n
+            print '%3d %8d %8d %8.2f%%' % (key, n, value, pct)
+        print '-' * 32
+        print '             %8d %8.2f%%' % (len(model.quads), 100)
+        ITERATIONS+=iter['step']
+        if ITERATIONS>iter['end'] and ITERATIONS<(iter['end']+iter['step']) : ITERATIONS=iter['end']
+        print '-' * 32
+        print ' ' * 32
+    if iter['start']==0:os.startfile(os.path.join('result',Output_file_name))
+    else: os.startfile(os.path.dirname(Output_file_name))
 
 if __name__ == '__main__':
     main()
